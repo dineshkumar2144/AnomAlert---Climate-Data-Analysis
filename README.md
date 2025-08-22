@@ -1,2 +1,4 @@
 # AnomAlert---Climate-Data-Analysis
 A personal project showcasing my skills in Python . Built as part of my portfolio to demonstrate knowledge in data analysis and building websites.
+Project title : AnomAlert                                                                                                                                                                                                           Problem Statement :
+Climate anomalies like floods, heatwaves, and cyclones are escalating across India, yet timely, localized alerts remain inaccessible to many. This project aims to build an interactive web dashboard that detects anomalies, simulates real-time alerts, and visualizes regional climate risks using satellite-inspired data—empowering users and agencies like ISRO to respond faster and smarter.
