@@ -1,0 +1,127 @@
+Prototype Code Of AnomAlert is mentioned below :
+import streamlit as st
+import pandas as pd
+import plotly.express as px
+import base64
+import requests
+
+st.set_page_config(page_title=" Anom Alert Dashboard", layout="wide")
+st.title(" Climate Anomaly Dashboard – India Station Data")
+
+df = pd.read_excel("data/p1.xlsx", sheet_name="Sheet1", skiprows=1)
+
+df.columns = [
+    "S.NO", "Station", "MinTemp", "MinTempDate",
+    "MaxTemp", "MaxTempDate", "Rainfall", "RainfallDate"
+]
+
+df = df.dropna(subset=["Station"])
+
+def detect_anomalies(df):
+    df["Anomaly"] = ""
+    df.loc[df["MaxTemp"] > 45, "Anomaly"] = "Heatwave"
+    df.loc[df["Rainfall"] > 150, "Anomaly"] = "Flood Risk"
+    df.loc[(df["Rainfall"] > 200) & (df["MaxTemp"] < 30), "Anomaly"] = "Cyclone Alert"
+    return df
+
+df = detect_anomalies(df)
+
+station_coords = {
+    "Agiripalli": {"lat": 16.7167, "lon": 80.6167},
+    "Mumbai": {"lat": 19.0760, "lon": 72.8777},
+    "Delhi": {"lat": 28.6139, "lon": 77.2090},
+}
+
+station = st.sidebar.selectbox("Select Station", sorted(df["Station"].unique()))
+filtered = df[df["Station"] == station]
+
+coords = station_coords.get(station, {"lat": 0, "lon": 0})
+lat, lon = coords["lat"], coords["lon"]
+api_key = "b0c7721862d4eb95a26948e6bad11954"
+
+weather_url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={api_key}&units=metric"
+try:
+    response = requests.get(weather_url).json()
+    temperature = response["main"]["temp"]
+    humidity = response["main"]["humidity"]
+    wind_speed = response["wind"]["speed"]
+except:
+    temperature = humidity = wind_speed = "N/A"
+
+st.sidebar.markdown(" Live Weather Data")
+st.sidebar.metric("📍 Latitude", f"{lat:.2f}")
+st.sidebar.metric("📍 Longitude", f"{lon:.2f}")
+st.sidebar.metric("🌡 Temperature (°C)", temperature)
+st.sidebar.metric("💧 Humidity (%)", humidity)
+st.sidebar.metric("💨 Wind Speed (m/s)", wind_speed)
+
+st.subheader(f" Climate Metrics for {station}")
+col1, col2, col3 = st.columns(3)
+col1.metric("Min Temp (°C)", f"{filtered['MinTemp'].values[0]:.1f}")
+col2.metric("Max Temp (°C)", f"{filtered['MaxTemp'].values[0]:.1f}")
+col3.metric("Rainfall (mm)", f"{filtered['Rainfall'].values[0]:.1f}")
+
+# Alert panel
+st.subheader(" Alerts")
+alert = filtered["Anomaly"].values[0]
+
+# CSS animation
+st.markdown("""
+<style>
+@keyframes flash {
+  0% {opacity: 1;}
+  50% {opacity: 0;}
+  100% {opacity: 1;}
+}
+.cyclone-alert {
+  animation: flash 1s infinite;
+  font-weight: bold;
+  font-size: 18px;
+  color: purple;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# Alert messages
+if alert == "Heatwave":
+    st.markdown(f"<div style='color:orange;'> Heatwave Alert – Max Temp: {filtered['MaxTemp'].values[0]}°C</div>", unsafe_allow_html=True)
+elif alert == "Flood Risk":
+    st.markdown(f"<div style='color:red;'> Flood Risk – Rainfall: {filtered['Rainfall'].values[0]}mm</div>", unsafe_allow_html=True)
+elif alert == "Cyclone Alert":
+    st.markdown(f"<div class='cyclone-alert'>Cyclone Alert – Rainfall: {filtered['Rainfall'].values[0]}mm</div>", unsafe_allow_html=True)
+else:
+    st.success(" No anomalies detected.")
+
+# Plot – Temperature vs Rainfall
+st.subheader(" Temperature vs Rainfall Across Stations")
+fig = px.scatter(
+    df,
+    x="MaxTemp",
+    y="Rainfall",
+    color="Anomaly",
+    hover_name="Station",
+    size=(df["MinTemp"].abs() + 1) * 3,
+    title="Max Temperature vs Rainfall",
+    labels={"MaxTemp": "Max Temp (°C)", "Rainfall": "Rainfall (mm)"}
+)
+st.plotly_chart(fig, use_container_width=True)
+
+def play_sound(file_path):
+    try:
+        sound_file = open(file_path, "rb")
+        sound_bytes = sound_file.read()
+        b64 = base64.b64encode(sound_bytes).decode()
+        st.markdown(f"""
+            <audio autoplay>
+            <source src="data:audio/mp3;base64,{b64}" type="audio/mp3">
+            </audio>
+        """, unsafe_allow_html=True)
+    except:
+        st.warning("🔊 Alert sound file not found.")
+
+if alert == "Heatwave":
+    play_sound("assets/heat_alert.mp3")
+elif alert == "Flood Risk":
+    play_sound("assets/hurricane-storm-nature-sounds-8397.mp3")
+elif alert == "Cyclone Alert":
+    play_sound("assets/emergency-warning-system-united-states-313128.mp3")
